@@ -13,7 +13,22 @@ import os
 import streamlit as st
 import requests
 from dotenv import load_dotenv
-video_url="https://www.youtube.com/watch?v=1L509JK8p1I"
+
+
+from urllib.parse import urlparse, parse_qs
+
+def extract_video_id(url):
+    parsed = urlparse(url)
+
+    if parsed.netloc in ["youtu.be"]:
+        return parsed.path.lstrip("/")
+
+    elif parsed.netloc in ["www.youtube.com","youtube.com"]:
+        if parsed.path == "/watch":
+            return parse_qs(parsed.query).get("v", [None])[0]
+        elif parsed.path.startswith("/embed/") or parsed.path.startswith("/shorts/"):
+            return parsed.path.split("/")[2]
+    return None
 
 load_dotenv(".env")
 
@@ -32,24 +47,41 @@ button=st.button("Summarize")
 if button and url:
     with st.spinner("Creating Summary..."):
         try:
-            f=False
-            short_url=""
-            for i in url:
-                if f:
-                    short_url+=i
-                if i=="=":
-                    f=True
-            c=""
-            transcript = YouTubeTranscriptApi.get_transcript(short_url)
-            for entry in transcript:
-                c+=entry['text']
+            short=""
+            short_url = extract_video_id(url)
+            if short_url=="":
+                st.error("Could not extract video ID. Please check the YouTube URL.")
+                st.stop()
 
+            try:
+                transcript_list = YouTubeTranscriptApi.list_transcripts(short_url)
+            except Exception as e:
+                st.error(f"Transcript list error: {e}")
+                st.stop()
+
+            code = ""
+            transcript = ""
+            for i in transcript_list:
+                if i.is_generated:
+                    code = {
+                        "language": i.language,
+                        "language_code": i.language_code
+                    }
+                    transcript = i.fetch()
+                    break
+            if code=="":
+                st.error("No auto-generated transcript found.")
+                st.stop()
+
+            c = " ".join(entry.text for entry in transcript)
+
+            
             splitter=RecursiveCharacterTextSplitter(
                 chunk_size=1000,
                 chunk_overlap=200,
                 length_function=len
             )
-
+    
             chunks = splitter.split_text(c)
 
             # Vector store
@@ -67,7 +99,7 @@ if button and url:
             prompt=PromptTemplate(
                 input_variables=["context", "input"],
                                 template="""
-                                You are an expert summarizer and technical writer.
+                                You are an expert summarizer and technical writer and a good translator if it is in foreign language convert all to english and suggest a title for the summary in capitals.
 
             Your goal is to write a **very detailed, long-form analysis** of the following transcript. Please perform the following tasks:
 
