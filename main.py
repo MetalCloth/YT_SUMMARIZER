@@ -33,8 +33,11 @@ def extract_video_id(url):
 load_dotenv(".env")
 
 
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
-os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
+openai_api_key = os.getenv("OPENAI_API_KEY", st.secrets.get("OPENAI_API_KEY"))
+langchain_api_key = os.getenv("LANGCHAIN_API_KEY", st.secrets.get("LANGCHAIN_API_KEY"))
+
+os.environ["OPENAI_API_KEY"] = openai_api_key
+os.environ["LANGCHAIN_API_KEY"] = langchain_api_key
 
 
 st.title("🎯 YouTube DeepSummarizer")
