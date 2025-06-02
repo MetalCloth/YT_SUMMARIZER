@@ -15,6 +15,7 @@ faiss-cpu
 chromadb
 
 langserve
+youtube-transcript-api
 transformers
 
 yt_dlp
